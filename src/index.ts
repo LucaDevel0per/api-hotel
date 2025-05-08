@@ -1,14 +1,10 @@
-import express from "express";
-import roomsRouter from "./routes/rooms";
-import guestsRouter from "./routes/guests";
+import app from './app'
 // import bookingsRouter from "./routes/bookings";
 
-const app = express();
+// const app = express();
 const port = 3001;
 
-app.use(express.json());
-app.use("/rooms", roomsRouter);
-app.use("/guests", guestsRouter);
+
 // app.use("/bookings", bookingsRouter);
 
 app.listen(port, () => {
