@@ -1,77 +1,79 @@
 import { Router } from "express";
+import prisma from "../lib/prisma";
 
 const router = Router();
 
-// bd em memoria
-let rooms: { id: number; number: string; type: string; available: boolean }[] =
-  [];
-let nextId = 1;
-
 // Criar um novo quarto
-router.post("/", (req, res) => {
-  const { number, type, available } = req.body;
+router.post("/", async (req, res) => {
+  const { number, type, status } = req.body;
 
-  if (!number || !type || available === undefined) {
-    res.status(400).json({ message: "Campos obrigátorios" });
-    return;
+  if (!number || !type || !status) {
+    res.status(400).json({ message: "Campos obrigatorios" });
   }
 
-  const newRoom = {
-    id: nextId++,
-    number,
-    type,
-    available,
-  };
+  const newRoom = await prisma.room.create({
+    data: { number, type, status },
+  });
 
-  rooms.push(newRoom);
   res.status(201).json(newRoom);
 });
 
 // Listar todos os quartos
-router.get("/", (_req, res) => {
+router.get("/", async (req, res) => {
+  const rooms = await prisma.room.findMany();
   res.json(rooms);
 });
 
-router.get("/:id", (req, res) => {
+// Listar quarto por ID
+router.get("/:id", async (req, res) => {
   const id = parseInt(req.params.id);
-  const room = rooms.find((r) => r.id === id);
 
-  if (!room) {
-    res.status(404).json({ message: "Quarto não enontrado." });
-    return;
+  try {
+    const room = await prisma.room.findUnique({
+      where: { id },
+    });
+    if (!room) {
+      res.status(404).json({ message: "Quarto nao encontrado." });
+      return;
+    }
+
+    res.json(room);
+  } catch (err) {
+    res.status(500).json({ message: "Erro interno ao tentar buscar quarto." });
   }
-
-  res.json(room);
 });
 
 // Atualizar um quarto
-router.put("/:id", (req, res) => {
+router.put("/:id", async (req, res) => {
   const id = parseInt(req.params.id);
-  const { number, type, available } = req.body;
+  const { number, type, status } = req.body;
 
-  const roomIndex = rooms.findIndex((r) => r.id === id);
-  if (roomIndex === -1) {
-    res.status(404).json({ message: "Quarto não encontrado" });
-    return;
+  try {
+    const updatedRoom = await prisma.room.update({
+      where: { id },
+      data: { number, type, status },
+    });
+
+    res.json(updatedRoom);
+  } catch (err) {
+    res.status(404).json({ message: "Quarto não encontrado." });
   }
-
-  rooms[roomIndex] = {
-    ...rooms[roomIndex],
-    number,
-    type,
-    available,
-  };
-
-  res.json(rooms[roomIndex]);
 });
 
 // deletar um quarto
-
-router.delete("/:id", (req, res) => {
+router.delete("/:id", async (req, res) => {
   const id = parseInt(req.params.id);
-  rooms = rooms.filter((r) => r.id !== id);
-  res.status(204).send();
+
+  try {
+    await prisma.room.delete({
+      where: { id },
+    });
+
+    res.status(204).send();
+  } catch (error) {
+    res.status(404).json({ message: "Quarto não encontrado." });
+  }
 });
 
 export default router;
-export const getRooms = () => rooms;
+

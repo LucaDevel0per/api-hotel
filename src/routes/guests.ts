@@ -1,77 +1,81 @@
 import { Router } from "express";
+import prisma from "../lib/prisma";
 
 const router = Router();
 
-let guests: { id: number; name: string; email: string; phone: string }[] = [];
-let nextId = 1;
+// criar guest
+router.post("/", async (req, res) => {
+  const { name, email, phone } = req.body;
 
-// Criar novo guest
-router.post('/', (req, res) => {
-    const { name, email, phone} = req.body;
+  if (!name || !email || !phone) {
+    res.status(400).json({ message: "Campos obrigatorios" });
+  }
 
-    if (!name || !email || !phone) {
-        res.status(400).json({ message: "Campos obrigatórios: name, email, phone" });
-        return
-    }
+  const newGuest = await prisma.guest.create({
+    data: { name, email, phone },
+  });
 
-    const newGuest = {
-        id: nextId++,
-        name,
-        email,
-        phone
-    };
+  res.status(201).json(newGuest);
+});
 
-    guests.push(newGuest);
-    res.status(201).json(newGuest);
-})
-
-// Listar guests
-router.get('/', (req, res) => {
-    res.json(guests);
-})
+// Listar todos os guests
+router.get("/", async (req, res) => {
+  const guests = await prisma.guest.findMany();
+  res.json(guests);
+});
 
 // Listar guests por id
-router.get('/:id', (req, res) => {
-    const id = parseInt(req.params.id);
-    const guest = guests.find((g) => g.id === id);
+router.get("/:id", async  (req, res) => {
+  const id = parseInt(req.params.id);
 
-    if(!guest) {
-        res.status(404).json({ message: "Hospede não encontrado."});
+  try {
+      const guest = await prisma.guest.findUnique({
+        where: { id },
+      })
+      if (!guest) {
+        res.status(404).json({ message: "Hospede não encontrado." });
         return;
-    }
+      }
 
-    res.json(guest);
+      res.json(guest);
+  } catch(err) {
+    res.status(500).json({ message: "Erro interno ao tentar buscar hóspede."})
+  }
+
+
 });
 
 // Atualizar um guest
-router.put('/:id', (req, res) => {
-    const id = parseInt(req.params.id);
-    const { name, email, phone } = req.body;
+router.put("/:id", async (req, res) => {
+  const id = parseInt(req.params.id);
+  const { name, email, phone } = req.body;
 
-    const guestIndex = guests.findIndex((g) => g.id === id);
-    if (guestIndex === -1) {
-        res.status(404).json({ message: "Hospede não encontrado."})
-        return;
-    }
+  try {
+    const updatedGuest = await prisma.guest.update({
+      where: { id },
+      data: { name, email, phone },
+    });
 
-    guests[guestIndex] = {
-        ...guests[guestIndex],
-        name,
-        email,
-        phone
-    };
-
-    res.json(guests[guestIndex]);
+    res.json(updatedGuest);
+  } catch (err) {
+    res.status(404).json({ message: "Hóspede não encontrado." });
+  }
 });
 
 // deletar um quarto
 
-router.delete('/:id', (req, res) => {
-    const id = parseInt(req.params.id);
-    guests = guests.filter((g) => g.id !== id);
-    res.status(204).send();
-})
+router.delete("/:id", async (req, res) => {
+  const id = parseInt(req.params.id);
 
+  try {
+    await prisma.guest.delete({
+      where: { id },
+    });
+
+    res.status(204).send();
+  } catch (error) {
+    res.status(404).json({ message: "Hóspede não encontrado." });
+  }
+});
 
 export default router;
-export const getGuests = () => guests;
